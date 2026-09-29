@@ -10,21 +10,33 @@ Requirements: Node.js 20 or newer.
 
 ```bash
 npm install
-# Prisma reads DATABASE_URL from a local .env. Create one only if you do not already have it:
-#   cp -n .env.example .env
-npx prisma migrate dev
-npx prisma generate
-npm run seed
 npm run dev
 ```
 
-After every `git pull` that changes `prisma/schema.prisma`, run those four commands again before opening the site. `npx prisma db push` can stand in for `npx prisma migrate dev` if you only need the local SQLite file updated. Stop a dev server that was already running so it picks up the new Prisma client. If you skip this, the profile crashes with `prisma.highlight` undefined.
+`npm install` (via `postinstall`) and `npm run dev` both run `scripts/ensure-db.mjs` before Next starts:
 
-Open [http://localhost:3000](http://localhost:3000).
+- If `.env` is missing, copy `.env.example` to `.env`. An existing `.env` is never overwritten.
+- Apply pending migrations with `prisma migrate deploy` (non-interactive).
+- Run `prisma generate`.
 
-`.env` stays on your machine. The repo does not include it, and these steps do not overwrite an existing file.
+Open [http://localhost:3000](http://localhost:3000). After `git pull`, `npm run dev` is enough. Stop a dev server that was already running so it loads the new code and Prisma client.
 
-`npm run seed` resets the demo database and copies the photos in `seed-media/` into `uploads/`. Those files are fixed Picsum images (saved in the repo) so a Quick Tunnel demo does not depend on the network. Re-run the seed any time you want a clean slate. Private and circle photos are still served only through `/api/media`, not from `public/`.
+`npm run setup` does the same env, migrate, and generate steps without starting Next. Add a seed only when you want the demo content:
+
+```bash
+npm run seed
+# or: npm run setup -- --seed
+```
+
+`npm run seed` resets the demo database and copies the photos in `seed-media/` into `uploads/`. It is not run on install, on `npm run dev`, or after a pull. Those files are fixed Picsum images (saved in the repo) so a Quick Tunnel demo does not depend on the network. Re-run the seed any time you want a clean slate. Private and circle photos are still served only through `/api/media`, not from `public/`.
+
+Optional: apply migrations on every `git pull` without starting the app.
+
+```bash
+git config core.hooksPath scripts/git-hooks
+```
+
+`scripts/git-hooks/post-merge` runs the same ensure step. It does not seed and does not overwrite `.env`.
 
 ## Demo accounts
 
@@ -45,7 +57,7 @@ Bart’s following **list** is private (the count is public). `GET /api/profile/
 
 ## Environment
 
-Settings live in a local `.env`, which is gitignored. If you do not have one yet, copy `.env.example`. Seed and sign-in fall back to the demo accounts above when `OWNER_*` and `MEMBER_PASSWORD` are unset. In production, set `AUTH_SECRET` to a long random string (the app refuses to boot without it).
+Settings live in a local `.env`, which is gitignored. The only env file in the repo is `.env.example`. The first `npm install`, `npm run setup`, or `npm run dev` creates `.env` from that example when you do not already have one, and leaves an existing `.env` byte-for-byte unchanged. Seed and sign-in fall back to the demo accounts above when `OWNER_*` and `MEMBER_PASSWORD` are unset. In production, set `AUTH_SECRET` to a long random string (the app refuses to boot without it).
 
 | Variable | Purpose |
 | --- | --- |
@@ -149,13 +161,11 @@ To use a different owner email or password, set `OWNER_EMAIL` and `OWNER_PASSWOR
 
 | Command | What it does |
 | --- | --- |
-| `npm run dev` | Generate the Prisma client, then start Next.js |
+| `npm run dev` | Ensure `.env`, apply pending migrations, generate the Prisma client, then start Next.js |
+| `npm run setup` | Ensure `.env`, `prisma migrate deploy`, and `prisma generate`. `-- --seed` also resets demo data |
 | `npm run build` / `npm start` | Production build and server |
-| `npm run seed` | Generate the Prisma client, then reset Bart, circles, posts, stories, and demo members |
-| `npm test` | Audience rules and emoji-phrase checks |
-| `npx prisma migrate dev` | Apply `prisma/migrations` (including `Highlight`) to the local database |
-| `npx prisma db push` | Push the schema without a new migration file |
-| `npx prisma generate` | Rebuild the client so `prisma.highlight` exists |
+| `npm run seed` | Ensure `.env` and migrations, then reset Bart, circles, posts, stories, and demo members |
+| `npm test` | Audience rules, emoji-phrase checks, and the `.env` copy-if-missing check |
 | `npx prisma studio` | Browse the database |
 
 ## Project map

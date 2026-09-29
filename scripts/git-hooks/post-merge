@@ -1,0 +1,7 @@
+#!/bin/sh
+# Applies pending migrations and creates .env from .env.example when it is missing.
+# Does not seed and does not overwrite an existing .env.
+# Enable with: git config core.hooksPath scripts/git-hooks
+root=$(git rev-parse --show-toplevel) || exit 0
+cd "$root" || exit 0
+node scripts/ensure-db.mjs

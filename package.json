@@ -3,13 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "prisma generate && next dev",
+    "dev": "node scripts/ensure-db.mjs && next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "seed": "prisma generate && tsx prisma/seed.ts",
-    "test": "tsx --test src/lib/privacy.test.ts src/lib/emojiCode.test.ts src/lib/prismaSetup.test.ts",
-    "postinstall": "prisma generate"
+    "setup": "node scripts/ensure-db.mjs",
+    "seed": "node scripts/ensure-db.mjs && tsx prisma/seed.ts",
+    "test": "tsx --test src/lib/privacy.test.ts src/lib/emojiCode.test.ts src/lib/prismaSetup.test.ts scripts/ensure-db.test.mjs",
+    "postinstall": "node scripts/ensure-db.mjs"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
