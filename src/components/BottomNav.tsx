@@ -69,7 +69,6 @@ export function BottomNav() {
             aria-label={item.label}
           >
             {item.icon}
-            <span>{item.label}</span>
           </Link>
         );
       })}

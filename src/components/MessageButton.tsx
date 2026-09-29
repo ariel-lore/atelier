@@ -19,7 +19,7 @@ export function MessageButton({
 
   if (!signedIn) {
     return (
-      <a className="btn btn-ghost" href="/login">
+      <a className="btn btn-secondary" href="/login">
         Message
       </a>
     );
@@ -29,7 +29,7 @@ export function MessageButton({
     return (
       <button
         type="button"
-        className="btn btn-ghost"
+        className="btn btn-secondary"
         onClick={async () => {
           setError("");
           const res = await fetch("/api/messages", {
@@ -52,8 +52,8 @@ export function MessageButton({
 
   if (instagramHandle) {
     return (
-      <a className="btn btn-ghost" href={`https://instagram.com/${instagramHandle}`} target="_blank" rel="noreferrer">
-        Instagram
+      <a className="btn btn-secondary" href={`https://instagram.com/${instagramHandle}`} target="_blank" rel="noreferrer">
+        Open profile
       </a>
     );
   }

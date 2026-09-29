@@ -42,6 +42,7 @@ model User {
   following         Follow[]             @relation("UserFollows")
   followers         Follow[]             @relation("UserFollowedBy")
   verifications     Verification[]
+  highlights        Highlight[]
 }
 
 model Session {
@@ -146,6 +147,17 @@ model Story {
   frames    StoryFrame[]
 
   @@index([authorId, expiresAt])
+}
+
+model Highlight {
+  id        String @id @default(cuid())
+  authorId  String
+  author    User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  label     String
+  imagePath String
+  position  Int    @default(0)
+
+  @@index([authorId, position])
 }
 
 model StoryFrame {

@@ -24,7 +24,7 @@ export function FollowButton({ userId, following }: { userId: string; following:
   }
 
   return (
-    <button type="button" className="btn btn-secondary" onClick={toggle} disabled={busy}>
+    <button type="button" className={on ? "btn btn-secondary" : "btn btn-follow"} onClick={toggle} disabled={busy}>
       {on ? "Following" : "Follow"}
     </button>
   );

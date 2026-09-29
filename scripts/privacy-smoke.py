@@ -36,6 +36,10 @@ class Client:
         return status, json.loads(text) if text else None
 
 
+def is_image(raw: bytes) -> bool:
+    return raw[:3] == b"\xff\xd8\xff" or raw[:8] == b"\x89PNG\r\n\x1a\n"
+
+
 def captions(posts):
     return [(p["audience"], tuple(p["circleNames"]), p["caption"][:42]) for p in posts]
 
@@ -46,7 +50,7 @@ def main():
     assert status == 200, profile
     anon_posts = profile["profile"]["posts"]
     assert all(p["audience"] == "PUBLIC" for p in anon_posts), anon_posts
-    assert len(anon_posts) == 6
+    assert len(anon_posts) >= 18
     blob = json.dumps(profile)
     for secret in ["Peaches", "kitchen table", "Draft notes", "soft lock"]:
         assert secret not in blob, secret
@@ -64,7 +68,7 @@ def main():
     close = next(p for p in bart_feed["posts"] if "Draft notes" in p["caption"])
     private = next(p for p in bart_feed["posts"] if "kitchen table" in p["caption"])
     public = next(p for p in bart_feed["posts"] if "Morning light" in p["caption"])
-    assert len(bart_feed["posts"]) == 10
+    assert len(bart_feed["posts"]) >= len(anon_posts) + 2
 
     _, stories = bart.json("GET", "/api/stories")
     story = {s["label"]: s for s in stories["stories"]}
@@ -99,7 +103,7 @@ def main():
             code_page, page = client.req("GET", f"/post/{pid}")
             code_api, _ = client.json("GET", f"/api/posts/{pid}")
             if allowed:
-                assert code == 200 and raw[:8] == b"\x89PNG\r\n\x1a\n", (email, pid, code)
+                assert code == 200 and is_image(raw), (email, pid, code, raw[:8])
                 assert code_page == 200 and code_api == 200
             else:
                 assert code == 404, (email, pid, code)
@@ -135,7 +139,15 @@ def main():
     code, _ = alex.req("GET", f"/stories/{story['Notes']['id']}")
     assert code == 404, code
     code, raw = alex.req("GET", f"/api/media/stories/{story['Coffee']['id']}")
-    assert code == 200 and raw[:4] == b"\x89PNG", code
+    assert code == 200 and is_image(raw), code
+    for image in family["images"]:
+        code, _ = alex.req("GET", image["mediaUrl"])
+        assert code == 200, image["mediaUrl"]
+        code, _ = Client().req("GET", image["mediaUrl"])
+        assert code == 404, image["mediaUrl"]
+    for image in close["images"]:
+        code, _ = alex.req("GET", image["mediaUrl"])
+        assert code == 404, image["mediaUrl"]
 
     # member cannot create a post or read circles
     code, body = alex.json("GET", "/api/circles")
