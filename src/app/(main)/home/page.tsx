@@ -1,42 +1,32 @@
 import Link from "next/link";
+import { PostChrome } from "@/components/PostChrome";
 import { getViewer } from "@/lib/auth";
-import { audienceLabel, listPosts } from "@/lib/queries";
-import { timeAgo } from "@/lib/utils";
-import { LockIcon } from "@/components/Icons";
+import { listPosts, listStories } from "@/lib/queries";
 
 export default async function HomePage() {
   const viewer = await getViewer();
-  const posts = await listPosts(viewer);
+  const [posts, stories] = await Promise.all([listPosts(viewer), listStories(viewer)]);
   return (
     <section className="view" aria-label="Home">
+      {stories.length > 0 && (
+        <div className="stories-row stories-tray" aria-label="Stories">
+          {stories.map((story) => (
+            <Link key={story.id} href={`/stories/${story.id}`} className="story-ring" aria-label={`View story: ${story.label}`}>
+              <span className="story-ring-inner">
+                <img src={story.mediaUrl} alt="" width="64" height="64" />
+              </span>
+              <span className="story-label">{story.label}</span>
+            </Link>
+          ))}
+        </div>
+      )}
       {posts.length === 0 ? (
         <div className="empty">
           <h2>Quiet for now</h2>
           <p>Posts you are allowed to see will show up here.</p>
         </div>
       ) : (
-        posts.map((post) => (
-          <article key={post.id} className="feed-card">
-            <Link href={`/post/${post.id}`} className="feed-media">
-              <img src={post.mediaUrl} alt="" />
-              {post.images.length > 1 ? <span className="feed-count">{post.images.length} photos</span> : null}
-            </Link>
-            <div className="feed-caption">
-              <Link href={`/u/${post.author.handle}`} className="feed-author">
-                {post.author.displayName}
-              </Link>
-              {post.caption ? <p className="feed-text">{post.caption}</p> : null}
-              <div className="feed-meta">
-                {timeAgo(post.createdAt)}
-                {post.audience !== "PUBLIC" ? (
-                  <span className="post-privacy">
-                    <LockIcon size={11} /> {audienceLabel(post.audience, post.circleNames)}
-                  </span>
-                ) : null}
-              </div>
-            </div>
-          </article>
-        ))
+        posts.map((post) => <PostChrome key={post.id} post={post} />)
       )}
     </section>
   );

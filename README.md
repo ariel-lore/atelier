@@ -17,7 +17,7 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-`npm run seed` resets the demo database and writes placeholder images into `uploads/`. Re-run it any time you want a clean slate.
+`npm run seed` resets the demo database and copies the photos in `seed-media/` into `uploads/`. Those files are fixed Picsum images (saved in the repo) so a Quick Tunnel demo does not depend on the network. Re-run the seed any time you want a clean slate. Private and circle photos are still served only through `/api/media`, not from `public/`.
 
 ## Demo accounts
 
@@ -28,7 +28,11 @@ Open [http://localhost:3000](http://localhost:3000).
 | Sam Rivera | `sam@atelier.local` | `member-atelier` | Public posts, plus Close Friends |
 | Jordan Lee | `jordan@atelier.local` | `member-atelier` | Public posts only. Instagram check is waiting for Bart |
 
-Logged out, the grid is public posts only. A direct link to a Family post or its image returns 404 for Alex’s account and for logged-out visitors. Sam never receives Family posts. Alex never receives Close Friends posts.
+Logged out, the grid is the public posts only: a full 3-column set of real photos, plus story highlights (Studio, Coast, Desk, Market, Type). A direct link to the Family post (“Peaches”), the Close Friends post (“Draft notes”), the Only me post (“kitchen table”), or any of their image URLs returns 404 for the wrong viewer. Sam never receives Family posts. Alex never receives Close Friends posts.
+
+About 130 extra people follow Bart so the follower count looks lived-in. They are not login accounts. Sign in only with the four accounts above.
+
+The profile bio is “Designing Meridian”, Vancouver, and `meridian.studio`. Live stories (Studio, Walk, Coast, plus Coffee for Family, Notes for Close Friends, and Draft for Bart only) expire 24 hours after the seed run. Highlights stay on the profile.
 
 Bart’s following **list** is private (the count is public). `GET /api/profile/lists?kind=following` returns 403 for anyone who is not Bart.
 
@@ -49,7 +53,8 @@ Copy `.env.example` if you need a fresh file. The repo includes a `.env` with lo
 
 ## What the first version includes
 
-- Owner profile with a public grid, story rings, and a home feed
+- Owner profile laid out like a light photo app: avatar with a story ring, counts beside it, bio, highlights, and a tight 3-column grid
+- Home feed with a stories tray and post chrome (like, comment, share, save, caption “more”, timestamp)
 - Sign up and sign in (email + password, httpOnly session cookie)
 - Roles: `OWNER` and `MEMBER`
 - Circles: create, rename, delete, and assign verified people
@@ -146,7 +151,8 @@ Changing the owner email or password means editing `.env` and running `npm run s
 
 ## Project map
 
-- `prisma/schema.prisma` — users, sessions, circles, posts (with `PostImage` rows), stories (with `StoryFrame` rows), verification, messages
+- `prisma/schema.prisma` — users, sessions, circles, posts (with `PostImage` rows), stories (with `StoryFrame` rows), highlights, verification, messages
+- `seed-media/` — the demo photos copied into `uploads/` by `npm run seed`
 - `src/lib/privacy.ts` — who can see a post, story, or profile field
 - `src/app/api/**` — auth, feed, profile, media, circles, verification, messages
 - `src/app/(main)/**` — the phone-shaped UI

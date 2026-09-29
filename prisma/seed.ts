@@ -1,14 +1,39 @@
 import "./load-env";
 import { randomUUID } from "crypto";
+import { readFile } from "fs/promises";
+import path from "path";
 import bcrypt from "bcryptjs";
 import { PrismaClient } from "@prisma/client";
 import { saveObject } from "../src/lib/storage";
-import { gradientPng } from "./placeholder";
 
 const prisma = new PrismaClient();
+const SEED_MEDIA = path.join(process.cwd(), "seed-media");
 
 const hour = 60 * 60 * 1000;
 const day = 24 * hour;
+
+async function media(rel: string, folder: "avatars" | "posts" | "stories" | "highlights") {
+  const file = path.join(SEED_MEDIA, rel);
+  let buf: Buffer;
+  try {
+    buf = await readFile(file);
+  } catch {
+    throw new Error(`Missing seed photo ${rel}. Expected it under seed-media/.`);
+  }
+  if (buf.length < 3 || buf[0] !== 0xff || buf[1] !== 0xd8) {
+    throw new Error(`Seed photo ${rel} is not a JPEG`);
+  }
+  const key = `${folder}/${randomUUID()}.jpg`;
+  await saveObject(key, buf);
+  return key;
+}
+
+const firstNames = [
+  "Mina", "Owen", "Leah", "Noah", "Priya", "Evan", "Sofia", "Jonah", "Ava", "Chris",
+  "Elena", "Marcus", "Hana", "Theo", "Nina", "Jules", "Rae", "Omar", "Lila", "Kai",
+  "Maya", "Ben", "Iris", "Hugo", "Noor", "Seth", "Ada", "Leo", "Willa", "Nico",
+];
+const lastNames = ["Park", "Nguyen", "Shah", "Brooks", "Almeida", "Ito", "Berg", "Okoye", "Marin", "Cho", "Adler", "Voss"];
 
 async function main() {
   const ownerEmail = process.env.OWNER_EMAIL || "bart@atelier.local";
@@ -21,10 +46,13 @@ async function main() {
   await prisma.threadParticipant.deleteMany();
   await prisma.thread.deleteMany();
   await prisma.like.deleteMany();
+  await prisma.postImage.deleteMany();
   await prisma.postCircle.deleteMany();
   await prisma.post.deleteMany();
+  await prisma.storyFrame.deleteMany();
   await prisma.storyCircle.deleteMany();
   await prisma.story.deleteMany();
+  await prisma.highlight.deleteMany();
   await prisma.circleMember.deleteMany();
   await prisma.circle.deleteMany();
   await prisma.verification.deleteMany();
@@ -34,12 +62,7 @@ async function main() {
 
   const ownerHash = await bcrypt.hash(ownerPassword, 10);
   const memberHash = await bcrypt.hash(memberPassword, 10);
-
-  const avatar = async (folder: string, from: string, to: string) => {
-    const key = `${folder}/${randomUUID()}.png`;
-    await saveObject(key, gradientPng(96, 96, from, to));
-    return key;
-  };
+  const crowdHash = await bcrypt.hash(randomUUID(), 8);
 
   const bart = await prisma.user.create({
     data: {
@@ -47,7 +70,7 @@ async function main() {
       passwordHash: ownerHash,
       displayName: ownerName,
       handle: ownerHandle,
-      bio: "Building Meridian · design & systems\nVancouver · quiet feed",
+      bio: "Designing Meridian\nVancouver\nmeridian.studio",
       role: "OWNER",
       instagramHandle: "bartmatero",
       instagramVerified: true,
@@ -55,7 +78,7 @@ async function main() {
       followingCountPublic: true,
       followerListPublic: true,
       followingListPublic: false,
-      avatarPath: await avatar("avatars", "#d9d3cc", "#8d8378"),
+      avatarPath: await media("avatars/bart.jpg", "avatars"),
     },
   });
 
@@ -69,7 +92,7 @@ async function main() {
       role: "MEMBER",
       instagramHandle: "alex.chen",
       instagramVerified: true,
-      avatarPath: await avatar("avatars", "#d5dde8", "#7f93ad"),
+      avatarPath: await media("avatars/alex.jpg", "avatars"),
     },
   });
 
@@ -83,7 +106,7 @@ async function main() {
       role: "MEMBER",
       instagramHandle: "sam.rivera",
       instagramVerified: true,
-      avatarPath: await avatar("avatars", "#e4e0ec", "#8d84a3"),
+      avatarPath: await media("avatars/sam.jpg", "avatars"),
     },
   });
 
@@ -97,8 +120,31 @@ async function main() {
       role: "MEMBER",
       instagramHandle: "jordan.lee",
       instagramVerified: false,
-      avatarPath: await avatar("avatars", "#f0e6d8", "#c4a27a"),
+      avatarPath: await media("avatars/jordan.jpg", "avatars"),
     },
+  });
+
+  const crowd = [];
+  let n = 0;
+  for (const first of firstNames) {
+    for (const last of lastNames) {
+      if (crowd.length >= 128) break;
+      const handle = `${first}${last}${n}`.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 20);
+      crowd.push({
+        email: `${handle}@seed.atelier`,
+        passwordHash: crowdHash,
+        displayName: `${first} ${last}`,
+        handle,
+        role: "MEMBER",
+      });
+      n += 1;
+    }
+  }
+  await prisma.user.createMany({ data: crowd });
+  const crowdUsers = await prisma.user.findMany({
+    where: { email: { endsWith: "@seed.atelier" } },
+    select: { id: true },
+    orderBy: { handle: "asc" },
   });
 
   const family = await prisma.circle.create({
@@ -129,95 +175,179 @@ async function main() {
     ago: number;
     audience: "PUBLIC" | "CIRCLES" | "PRIVATE";
     circleId?: string;
-    colors: [string, string];
+    files: string[];
   }[] = [
     {
-      caption: "Unsent — kitchen table, not for the grid.",
-      likes: 0,
-      ago: 1 * day,
-      audience: "PRIVATE",
-      colors: ["#eceae6", "#cfc8be"],
-    },
-    {
-      caption: "Morning light in the studio. Sketching layout systems before coffee kicks in.",
-      likes: 48,
-      ago: 2 * day,
+      caption: "Morning light in the studio.\nSketching before the coffee kicks in.\n\n#meridian #studio",
+      likes: 842,
+      ago: 6 * hour,
       audience: "PUBLIC",
-      colors: ["#e8e4df", "#c9c2b8"],
+      files: ["posts/p01.jpg"],
     },
     {
-      caption: "Coast trail — fog lifting around 7am. Quiet on purpose.",
-      likes: 112,
-      ago: 4 * day,
+      caption: "Coast trail, three stops.\nFog, then the headland, then lunch on a rock.\n\n@sam would have turned around at the fog.",
+      likes: 1204,
+      ago: 1 * day + 3 * hour,
       audience: "PUBLIC",
-      colors: ["#d4dde8", "#9aafc4"],
+      files: ["posts/p02a.jpg", "posts/p02b.jpg", "posts/p02c.jpg"],
     },
     {
-      caption: "Draft notes for Meridian’s privacy model. Circles, not a follower count.",
-      likes: 67,
+      caption: "One notebook. One task.\nThe rest of the desk can wait.",
+      likes: 316,
+      ago: 3 * day,
+      audience: "PUBLIC",
+      files: ["posts/p03.jpg"],
+    },
+    {
+      caption: "Weekend market with @alex.\nPeaches were the move — she called it before I paid.\n\n#familytable",
+      likes: 96,
       ago: 5 * day,
       audience: "CIRCLES",
-      circleId: close.id,
-      colors: ["#e4e0ec", "#b8aec9"],
+      circleId: family.id,
+      files: ["posts/p04a.jpg", "posts/p04b.jpg", "posts/p04c.jpg", "posts/p04d.jpg"],
     },
     {
-      caption: "Type study: Inter at small sizes still reads clean.",
-      likes: 31,
+      caption: "Type study.\nInter at small sizes still reads clean on a phone.",
+      likes: 540,
       ago: 7 * day,
       audience: "PUBLIC",
-      colors: ["#ebe8e2", "#d0cbc3"],
+      files: ["posts/p05.jpg"],
     },
     {
-      caption: "Weekend market haul. Peaches were the move.",
-      likes: 89,
-      ago: 8 * day,
-      audience: "CIRCLES",
-      circleId: family.id,
-      colors: ["#f0e6d8", "#d4b896"],
-    },
-    {
-      caption: "Desk reset. One notebook, one task.",
-      likes: 54,
-      ago: 14 * day,
+      caption: "Flat white, no rush.\nThe window seat was already taken so I stood.",
+      likes: 228,
+      ago: 9 * day,
       audience: "PUBLIC",
-      colors: ["#e2e6e8", "#aeb8bc"],
+      files: ["posts/p06a.jpg", "posts/p06b.jpg"],
     },
     {
-      caption: "Golden hour on the seawall. Vancouver doing Vancouver things.",
-      likes: 201,
-      ago: 15 * day,
-      audience: "PUBLIC",
-      colors: ["#f2d9c2", "#c9956c"],
-    },
-    {
-      caption: "Prototype: soft lock badge on private grid tiles. Light touch.",
-      likes: 43,
-      ago: 21 * day,
+      caption: "Draft notes for Meridian.\nCircles, not a follower count. @sam has the longer version.",
+      likes: 18,
+      ago: 11 * day,
       audience: "CIRCLES",
       circleId: close.id,
-      colors: ["#dde8e4", "#9bb8ae"],
+      files: ["posts/p07.jpg"],
     },
     {
-      caption: "End of week. Shipping small, thinking long.",
-      likes: 76,
+      caption: "Seawall, late.\nVancouver doing the golden-hour thing again.\n\n#vancouver #seawall",
+      likes: 2106,
+      ago: 13 * day,
+      audience: "PUBLIC",
+      files: ["posts/p08a.jpg", "posts/p08b.jpg", "posts/p08c.jpg", "posts/p08d.jpg", "posts/p08e.jpg"],
+    },
+    {
+      caption: "Rain on the studio glass.\nGood day to stay with the grid.",
+      likes: 671,
+      ago: 16 * day,
+      audience: "PUBLIC",
+      files: ["posts/p09.jpg"],
+    },
+    {
+      caption: "Ceramics from the place on Main.\nOne bowl for fruit, one that will probably hold paperclips.",
+      likes: 403,
+      ago: 19 * day,
+      audience: "PUBLIC",
+      files: ["posts/p10a.jpg", "posts/p10b.jpg"],
+    },
+    {
+      caption: "Stairs at the gallery.\nI go for the landings more than the show.",
+      likes: 155,
       ago: 22 * day,
       audience: "PUBLIC",
-      colors: ["#e8e4f0", "#b4a8c9"],
+      files: ["posts/p11.jpg"],
+    },
+    {
+      caption: "Library afternoon.\nSpread the references out, then put half of them back.\n\n#reading",
+      likes: 289,
+      ago: 25 * day,
+      audience: "PUBLIC",
+      files: ["posts/p12a.jpg", "posts/p12b.jpg", "posts/p12c.jpg"],
+    },
+    {
+      caption: "Shadow on linen.\nNothing else in the frame on purpose.",
+      likes: 734,
+      ago: 28 * day,
+      audience: "PUBLIC",
+      files: ["posts/p13.jpg"],
+    },
+    {
+      caption: "Ferry home.\nThe island gets small fast once you stop looking at your phone.",
+      likes: 988,
+      ago: 32 * day,
+      audience: "PUBLIC",
+      files: ["posts/p14a.jpg", "posts/p14b.jpg", "posts/p14c.jpg", "posts/p14d.jpg"],
+    },
+    {
+      caption: "Bike locked, coffee not yet.\nOrder of operations matters.",
+      likes: 412,
+      ago: 36 * day,
+      audience: "PUBLIC",
+      files: ["posts/p15.jpg"],
+    },
+    {
+      caption: "Paper samples for the next Meridian page.\nWarm white won. Cool white looked like a hospital.",
+      likes: 267,
+      ago: 40 * day,
+      audience: "PUBLIC",
+      files: ["posts/p16a.jpg", "posts/p16b.jpg"],
+    },
+    {
+      caption: "Bridge lights on the way back.\n#nightwalk",
+      likes: 1502,
+      ago: 44 * day,
+      audience: "PUBLIC",
+      files: ["posts/p17.jpg"],
+    },
+    {
+      caption: "Unsent — kitchen table, cleared.\nExcept the one mug I keep meaning to wash.",
+      likes: 0,
+      ago: 2 * day,
+      audience: "PRIVATE",
+      files: ["posts/p18a.jpg", "posts/p18b.jpg", "posts/p18c.jpg"],
+    },
+    {
+      caption: "Plant I have not killed yet.\nWeek six. @alex is keeping score.",
+      likes: 623,
+      ago: 48 * day,
+      audience: "PUBLIC",
+      files: ["posts/p19.jpg"],
+    },
+    {
+      caption: "Two frames from the same corner.\nThe second one is after the cloud moved.",
+      likes: 811,
+      ago: 52 * day,
+      audience: "PUBLIC",
+      files: ["posts/p20a.jpg", "posts/p20b.jpg"],
+    },
+    {
+      caption: "End of the week.\nShipping small, thinking long.\n\n#meridian",
+      likes: 447,
+      ago: 58 * day,
+      audience: "PUBLIC",
+      files: ["posts/p21.jpg"],
+    },
+    {
+      caption: "First desk in the new room.\nLess stuff. More wall.",
+      likes: 1290,
+      ago: 70 * day,
+      audience: "PUBLIC",
+      files: ["posts/p22.jpg"],
     },
   ];
 
   for (const post of posts) {
-    const imagePath = `posts/${randomUUID()}.png`;
-    await saveObject(imagePath, gradientPng(640, 640, post.colors[0], post.colors[1]));
+    const paths: string[] = [];
+    for (const file of post.files) paths.push(await media(file, "posts"));
     await prisma.post.create({
       data: {
         authorId: bart.id,
         caption: post.caption,
-        imagePath,
+        imagePath: paths[0],
         audience: post.audience,
         likeCount: post.likes,
         createdAt: new Date(now - post.ago),
         circles: post.circleId ? { create: [{ circleId: post.circleId }] } : undefined,
+        images: { create: paths.map((imagePath, position) => ({ imagePath, position })) },
       },
     });
   }
@@ -228,30 +358,50 @@ async function main() {
     ago: number;
     audience: "PUBLIC" | "CIRCLES" | "PRIVATE";
     circleId?: string;
-    colors: [string, string];
+    files: string[];
   }[] = [
-    { label: "Studio", caption: "Warm desk lamp, cold espresso", ago: 20 * hour, audience: "PUBLIC", colors: ["#2a2420", "#5c4a3a"] },
-    { label: "Walk", caption: "Trailhead before the city wakes", ago: 16 * hour, audience: "PUBLIC", colors: ["#1a2820", "#3d5c4a"] },
-    { label: "Notes", caption: "Privacy as a product surface", ago: 12 * hour, audience: "CIRCLES", circleId: close.id, colors: ["#22202a", "#4a3d5c"] },
-    { label: "Coffee", caption: "Flat white, no rush", ago: 8 * hour, audience: "CIRCLES", circleId: family.id, colors: ["#2a2018", "#5c4030"] },
-    { label: "Coast", caption: "Tide out · light soft", ago: 4 * hour, audience: "PUBLIC", colors: ["#182028", "#3a5060"] },
-    { label: "Draft", caption: "Still on the desk. Not for the grid.", ago: 1 * hour, audience: "PRIVATE", colors: ["#1c1c24", "#383848"] },
+    { label: "Studio", caption: "Warm lamp, cold espresso", ago: 2 * hour, audience: "PUBLIC", files: ["stories/studio-1.jpg", "stories/studio-2.jpg", "stories/studio-3.jpg"] },
+    { label: "Walk", caption: "Trailhead before the city wakes", ago: 5 * hour, audience: "PUBLIC", files: ["stories/walk-1.jpg", "stories/walk-2.jpg"] },
+    { label: "Notes", caption: "Privacy as a product surface", ago: 8 * hour, audience: "CIRCLES", circleId: close.id, files: ["stories/notes-1.jpg", "stories/notes-2.jpg"] },
+    { label: "Coffee", caption: "Flat white, no rush", ago: 11 * hour, audience: "CIRCLES", circleId: family.id, files: ["stories/coffee-1.jpg", "stories/coffee-2.jpg"] },
+    { label: "Coast", caption: "Tide out · light soft", ago: 15 * hour, audience: "PUBLIC", files: ["stories/coast-1.jpg", "stories/coast-2.jpg", "stories/coast-3.jpg"] },
+    { label: "Draft", caption: "Still on the desk. Not for the grid.", ago: 18 * hour, audience: "PRIVATE", files: ["stories/draft-1.jpg"] },
   ];
 
   for (const story of stories) {
-    const imagePath = `stories/${randomUUID()}.png`;
-    await saveObject(imagePath, gradientPng(480, 800, story.colors[0], story.colors[1]));
+    const paths: string[] = [];
+    for (const file of story.files) paths.push(await media(file, "stories"));
     const createdAt = new Date(now - story.ago);
     await prisma.story.create({
       data: {
         authorId: bart.id,
         label: story.label,
         caption: story.caption,
-        imagePath,
+        imagePath: paths[0],
         audience: story.audience,
         createdAt,
         expiresAt: new Date(createdAt.getTime() + day),
         circles: story.circleId ? { create: [{ circleId: story.circleId }] } : undefined,
+        frames: { create: paths.map((imagePath, position) => ({ imagePath, position })) },
+      },
+    });
+  }
+
+  const highlights = [
+    ["Studio", "highlights/studio.jpg"],
+    ["Coast", "highlights/coast.jpg"],
+    ["Desk", "highlights/desk.jpg"],
+    ["Market", "highlights/market.jpg"],
+    ["Type", "highlights/type.jpg"],
+  ] as const;
+  for (let position = 0; position < highlights.length; position++) {
+    const [label, file] = highlights[position];
+    await prisma.highlight.create({
+      data: {
+        authorId: bart.id,
+        label,
+        position,
+        imagePath: await media(file, "highlights"),
       },
     });
   }
@@ -263,6 +413,8 @@ async function main() {
       { followerId: jordan.id, followingId: bart.id },
       { followerId: bart.id, followingId: alex.id },
       { followerId: bart.id, followingId: sam.id },
+      ...crowdUsers.map((user) => ({ followerId: user.id, followingId: bart.id })),
+      ...crowdUsers.slice(0, 64).map((user) => ({ followerId: bart.id, followingId: user.id })),
     ],
   });
 
@@ -337,11 +489,14 @@ async function main() {
     ],
   });
 
+  const publicCount = posts.filter((post) => post.audience === "PUBLIC").length;
   console.log("Seeded Atelier.");
   console.log(`  Owner   ${ownerEmail}  /  ${ownerPassword}`);
   console.log(`  Family  alex@atelier.local  /  ${memberPassword}  (Family circle)`);
   console.log(`  Close   sam@atelier.local   /  ${memberPassword}  (Close Friends)`);
   console.log(`  Pending jordan@atelier.local / ${memberPassword}  (not verified)`);
+  console.log(`  Posts   ${posts.length} (${publicCount} public, 1 Family, 1 Close Friends, 1 Only me)`);
+  console.log(`  People  ${crowdUsers.length} extra followers (not login accounts)`);
 }
 
 main()

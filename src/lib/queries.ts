@@ -198,7 +198,7 @@ export async function getOwnerProfile(viewer: Viewer | null): Promise<ProfileDTO
 export async function getProfileByHandle(handle: string, viewer: Viewer | null): Promise<ProfileDTO | null> {
   const user = await prisma.user.findUnique({ where: { handle } });
   if (!user) return null;
-  const [counts, posts, stories, followedByViewer] = await Promise.all([
+  const [counts, posts, stories, highlights, followedByViewer] = await Promise.all([
     countPair(user.id),
     prisma.post.findMany({
       where: { AND: [{ authorId: user.id }, postVisibilityWhere(viewer)] },
@@ -209,6 +209,10 @@ export async function getProfileByHandle(handle: string, viewer: Viewer | null):
       where: { AND: [{ authorId: user.id }, storyVisibilityWhere(viewer)] },
       include: storyInclude,
       orderBy: { createdAt: "asc" },
+    }),
+    prisma.highlight.findMany({
+      where: { authorId: user.id },
+      orderBy: { position: "asc" },
     }),
     viewer
       ? prisma.follow.findUnique({
@@ -240,6 +244,11 @@ export async function getProfileByHandle(handle: string, viewer: Viewer | null):
     },
     posts: posts.map((p) => serializePost(p, viewer)).filter((p): p is PostDTO => p !== null),
     stories: stories.map((s) => serializeStory(s, viewer)).filter((s): s is StoryDTO => s !== null),
+    highlights: highlights.map((item) => ({
+      id: item.id,
+      label: item.label,
+      mediaUrl: `/api/media/highlights/${item.id}`,
+    })),
     followedByViewer: Boolean(followedByViewer),
   };
 }
