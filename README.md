@@ -10,12 +10,16 @@ Requirements: Node.js 20 or newer.
 
 ```bash
 npm install
+# Prisma reads DATABASE_URL from a local .env. Create one only if you do not already have it:
+#   cp -n .env.example .env
 npx prisma migrate dev
 npm run seed
 npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
+
+`.env` stays on your machine. The repo does not include it, and these steps do not overwrite an existing file.
 
 `npm run seed` resets the demo database and copies the photos in `seed-media/` into `uploads/`. Those files are fixed Picsum images (saved in the repo) so a Quick Tunnel demo does not depend on the network. Re-run the seed any time you want a clean slate. Private and circle photos are still served only through `/api/media`, not from `public/`.
 
@@ -38,7 +42,7 @@ Bart’s following **list** is private (the count is public). `GET /api/profile/
 
 ## Environment
 
-Copy `.env.example` if you need a fresh file. The repo includes a `.env` with local defaults so the commands above work immediately.
+Settings live in a local `.env`, which is gitignored. If you do not have one yet, copy `.env.example`. Seed and sign-in fall back to the demo accounts above when `OWNER_*` and `MEMBER_PASSWORD` are unset. In production, set `AUTH_SECRET` to a long random string (the app refuses to boot without it).
 
 | Variable | Purpose |
 | --- | --- |
@@ -136,7 +140,7 @@ For a small VPS or a Docker box:
 4. Run `npm run build` and `npm start`.
 5. Put the app behind HTTPS so the session cookie can be marked `Secure` (that happens automatically when `NODE_ENV=production`).
 
-Changing the owner email or password means editing `.env` and running `npm run seed` again. Seed deletes the demo users and posts first.
+To use a different owner email or password, set `OWNER_EMAIL` and `OWNER_PASSWORD` in your local `.env` and run `npm run seed` again. Seed deletes the demo users and posts first. It does not rewrite `.env`.
 
 ## Scripts
 
