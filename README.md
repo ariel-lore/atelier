@@ -13,9 +13,12 @@ npm install
 # Prisma reads DATABASE_URL from a local .env. Create one only if you do not already have it:
 #   cp -n .env.example .env
 npx prisma migrate dev
+npx prisma generate
 npm run seed
 npm run dev
 ```
+
+After every `git pull` that changes `prisma/schema.prisma`, run those four commands again before opening the site. `npx prisma db push` can stand in for `npx prisma migrate dev` if you only need the local SQLite file updated. Stop a dev server that was already running so it picks up the new Prisma client. If you skip this, the profile crashes with `prisma.highlight` undefined.
 
 Open [http://localhost:3000](http://localhost:3000).
 
@@ -146,11 +149,13 @@ To use a different owner email or password, set `OWNER_EMAIL` and `OWNER_PASSWOR
 
 | Command | What it does |
 | --- | --- |
-| `npm run dev` | Next.js dev server |
+| `npm run dev` | Generate the Prisma client, then start Next.js |
 | `npm run build` / `npm start` | Production build and server |
-| `npm run seed` | Reset and load Bart, circles, posts, stories, and demo members |
+| `npm run seed` | Generate the Prisma client, then reset Bart, circles, posts, stories, and demo members |
 | `npm test` | Audience rules and emoji-phrase checks |
-| `npx prisma migrate dev` | Apply schema changes to the local database |
+| `npx prisma migrate dev` | Apply `prisma/migrations` (including `Highlight`) to the local database |
+| `npx prisma db push` | Push the schema without a new migration file |
+| `npx prisma generate` | Rebuild the client so `prisma.highlight` exists |
 | `npx prisma studio` | Browse the database |
 
 ## Project map

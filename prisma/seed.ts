@@ -5,6 +5,7 @@ import path from "path";
 import bcrypt from "bcryptjs";
 import { PrismaClient } from "@prisma/client";
 import { saveObject } from "../src/lib/storage";
+import { assertHighlightClient, PrismaSetupError, rethrowSetupError } from "../src/lib/prismaSetup";
 
 const prisma = new PrismaClient();
 const SEED_MEDIA = path.join(process.cwd(), "seed-media");
@@ -36,6 +37,7 @@ const firstNames = [
 const lastNames = ["Park", "Nguyen", "Shah", "Brooks", "Almeida", "Ito", "Berg", "Okoye", "Marin", "Cho", "Adler", "Voss"];
 
 async function main() {
+  assertHighlightClient(prisma);
   const ownerEmail = process.env.OWNER_EMAIL || "bart@atelier.local";
   const ownerPassword = process.env.OWNER_PASSWORD || "bart-atelier";
   const ownerName = process.env.OWNER_NAME || "Bart Matero";
@@ -52,7 +54,11 @@ async function main() {
   await prisma.storyFrame.deleteMany();
   await prisma.storyCircle.deleteMany();
   await prisma.story.deleteMany();
-  await prisma.highlight.deleteMany();
+  try {
+    await prisma.highlight.deleteMany();
+  } catch (err) {
+    rethrowSetupError(err);
+  }
   await prisma.circleMember.deleteMany();
   await prisma.circle.deleteMany();
   await prisma.verification.deleteMany();
@@ -501,7 +507,11 @@ async function main() {
 
 main()
   .catch((err) => {
-    console.error(err);
+    if (err instanceof PrismaSetupError) {
+      console.error(err.message);
+    } else {
+      console.error(err);
+    }
     process.exit(1);
   })
   .finally(async () => {

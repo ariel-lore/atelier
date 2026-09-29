@@ -4,6 +4,7 @@ import { canSeePrivateProfileField, canView, storyIsLive } from "./privacy";
 import type { Audience, CircleDTO, PersonDTO, PostDTO, ProfileDTO, StoryDTO, ThreadSummary, Viewer } from "./types";
 import { asAudience } from "./privacy";
 import { avatarUrlFor, timeAgo } from "./utils";
+import { assertHighlightClient, rethrowSetupError } from "./prismaSetup";
 
 const postInclude = {
   author: true,
@@ -210,10 +211,17 @@ export async function getProfileByHandle(handle: string, viewer: Viewer | null):
       include: storyInclude,
       orderBy: { createdAt: "asc" },
     }),
-    prisma.highlight.findMany({
-      where: { authorId: user.id },
-      orderBy: { position: "asc" },
-    }),
+    (async () => {
+      assertHighlightClient(prisma);
+      try {
+        return await prisma.highlight.findMany({
+          where: { authorId: user.id },
+          orderBy: { position: "asc" },
+        });
+      } catch (err) {
+        rethrowSetupError(err);
+      }
+    })(),
     viewer
       ? prisma.follow.findUnique({
           where: { followerId_followingId: { followerId: viewer.id, followingId: user.id } },
