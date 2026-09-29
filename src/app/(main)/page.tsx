@@ -1,10 +1,17 @@
 import { ProfileView } from "@/components/ProfileView";
+import { isSetupError, SetupNotice } from "@/components/SetupNotice";
 import { getViewer } from "@/lib/auth";
 import { getOwnerProfile } from "@/lib/queries";
 
 export default async function ProfilePage() {
   const viewer = await getViewer();
-  const profile = await getOwnerProfile(viewer);
+  let profile;
+  try {
+    profile = await getOwnerProfile(viewer);
+  } catch (err) {
+    if (isSetupError(err)) return <SetupNotice error={err} />;
+    throw err;
+  }
   if (!profile) {
     return (
       <div className="empty">
