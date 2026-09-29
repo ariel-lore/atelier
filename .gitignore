@@ -16,6 +16,7 @@ prisma/dev.db-journal
 uploads/**
 !uploads/.gitkeep
 
-# env is committed with local demo defaults; production must override
+# local environment; not part of the repo
+.env
 .env.local
 .env.production

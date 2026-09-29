@@ -76,6 +76,7 @@ export type ProfileDTO = {
   };
   posts: PostDTO[];
   stories: StoryDTO[];
+  highlights: { id: string; label: string; mediaUrl: string }[];
   followedByViewer: boolean;
 };
 
