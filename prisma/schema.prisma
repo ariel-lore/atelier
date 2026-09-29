@@ -1,0 +1,231 @@
+// Atelier data model.
+// Local dev uses SQLite. To move to Postgres:
+//   1. Change provider to "postgresql"
+//   2. Point DATABASE_URL at your Postgres instance
+//   3. Run `npx prisma migrate dev`
+// No SQLite-only column types are used, so the schema can swap cleanly.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                    String   @id @default(cuid())
+  email                 String   @unique
+  passwordHash          String
+  displayName           String
+  handle                String   @unique
+  bio                   String   @default("")
+  avatarPath            String?
+  role                  String   @default("MEMBER") // OWNER | MEMBER
+  instagramHandle       String?
+  instagramVerified     Boolean  @default(false)
+  followerCountPublic   Boolean  @default(true)
+  followingCountPublic  Boolean  @default(true)
+  followerListPublic    Boolean  @default(true)
+  followingListPublic   Boolean  @default(false)
+  createdAt             DateTime @default(now())
+
+  sessions          Session[]
+  posts             Post[]
+  stories           Story[]
+  likes             Like[]
+  circleMemberships CircleMember[]
+  circlesOwned      Circle[]             @relation("CircleOwner")
+  sentMessages      Message[]
+  participations    ThreadParticipant[]
+  following         Follow[]             @relation("UserFollows")
+  followers         Follow[]             @relation("UserFollowedBy")
+  verifications     Verification[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Circle {
+  id          String   @id @default(cuid())
+  ownerId     String
+  owner       User     @relation("CircleOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  name        String
+  description String   @default("")
+  color       String   @default("#6b7280")
+  createdAt   DateTime @default(now())
+  members     CircleMember[]
+  posts       PostCircle[]
+  stories     StoryCircle[]
+
+  @@unique([ownerId, name])
+}
+
+model CircleMember {
+  id        String   @id @default(cuid())
+  circleId  String
+  userId    String
+  circle    Circle   @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([circleId, userId])
+  @@index([userId])
+}
+
+// audience: PUBLIC | CIRCLES | PRIVATE
+model Post {
+  id        String   @id @default(cuid())
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  caption   String   @default("")
+  imagePath String
+  audience  String   @default("PUBLIC")
+  likeCount Int      @default(0)
+  createdAt DateTime @default(now())
+  circles   PostCircle[]
+  likes     Like[]
+  images    PostImage[]
+
+  @@index([authorId, createdAt])
+  @@index([audience])
+}
+
+model PostImage {
+  id        String @id @default(cuid())
+  postId    String
+  post      Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  imagePath String
+  position  Int    @default(0)
+
+  @@index([postId, position])
+}
+
+model PostCircle {
+  id       String @id @default(cuid())
+  postId   String
+  circleId String
+  post     Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  circle   Circle @relation(fields: [circleId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, circleId])
+  @@index([circleId])
+}
+
+model Like {
+  id        String   @id @default(cuid())
+  postId    String
+  userId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([postId, userId])
+}
+
+model Story {
+  id        String   @id @default(cuid())
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  label     String
+  caption   String   @default("")
+  imagePath String
+  audience  String   @default("PUBLIC")
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  circles   StoryCircle[]
+  frames    StoryFrame[]
+
+  @@index([authorId, expiresAt])
+}
+
+model StoryFrame {
+  id        String @id @default(cuid())
+  storyId   String
+  story     Story  @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  imagePath String
+  position  Int    @default(0)
+
+  @@index([storyId, position])
+}
+
+model StoryCircle {
+  id       String @id @default(cuid())
+  storyId  String
+  circleId String
+  story    Story  @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  circle   Circle @relation(fields: [circleId], references: [id], onDelete: Cascade)
+
+  @@unique([storyId, circleId])
+  @@index([circleId])
+}
+
+// status: PENDING | VERIFIED | REJECTED
+model Verification {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  code            String
+  instagramHandle String
+  contentUrl      String    @default("")
+  status          String    @default("PENDING")
+  note            String    @default("")
+  createdAt       DateTime  @default(now())
+  reviewedAt      DateTime?
+
+  @@index([userId, status])
+  @@index([status])
+}
+
+model Thread {
+  id           String   @id @default(cuid())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  participants ThreadParticipant[]
+  messages     Message[]
+}
+
+model ThreadParticipant {
+  id         String    @id @default(cuid())
+  threadId   String
+  userId     String
+  thread     Thread    @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lastReadAt DateTime?
+
+  @@unique([threadId, userId])
+  @@index([userId])
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  threadId  String
+  senderId  String
+  body      String
+  createdAt DateTime @default(now())
+  thread    Thread   @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  sender    User     @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([threadId, createdAt])
+}
+
+model Follow {
+  id          String   @id @default(cuid())
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+  follower    User     @relation("UserFollows", fields: [followerId], references: [id], onDelete: Cascade)
+  following   User     @relation("UserFollowedBy", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followingId])
+  @@index([followingId])
+}

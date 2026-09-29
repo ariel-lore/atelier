@@ -1,0 +1,21 @@
+node_modules
+.next
+out
+tsconfig.tsbuildinfo
+.vercel
+*.log
+.DS_Store
+
+# local database
+*.db
+*.db-journal
+prisma/dev.db
+prisma/dev.db-journal
+
+# uploaded and generated media (seed recreates demo images)
+uploads/**
+!uploads/.gitkeep
+
+# env is committed with local demo defaults; production must override
+.env.local
+.env.production
