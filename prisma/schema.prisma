@@ -94,9 +94,20 @@ model Post {
   createdAt DateTime @default(now())
   circles   PostCircle[]
   likes     Like[]
+  images    PostImage[]
 
   @@index([authorId, createdAt])
   @@index([audience])
+}
+
+model PostImage {
+  id        String @id @default(cuid())
+  postId    String
+  post      Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  imagePath String
+  position  Int    @default(0)
+
+  @@index([postId, position])
 }
 
 model PostCircle {
@@ -132,8 +143,19 @@ model Story {
   expiresAt DateTime
   createdAt DateTime @default(now())
   circles   StoryCircle[]
+  frames    StoryFrame[]
 
   @@index([authorId, expiresAt])
+}
+
+model StoryFrame {
+  id        String @id @default(cuid())
+  storyId   String
+  story     Story  @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  imagePath String
+  position  Int    @default(0)
+
+  @@index([storyId, position])
 }
 
 model StoryCircle {

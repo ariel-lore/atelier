@@ -9,11 +9,13 @@ const postInclude = {
   author: true,
   circles: { include: { circle: true } },
   likes: true,
+  images: { orderBy: { position: "asc" as const } },
 } satisfies Prisma.PostInclude;
 
 const storyInclude = {
   author: true,
   circles: { include: { circle: true } },
+  frames: { orderBy: { position: "asc" as const } },
 } satisfies Prisma.StoryInclude;
 
 type PostRow = Prisma.PostGetPayload<{ include: typeof postInclude }>;
@@ -48,6 +50,26 @@ function visibleCircleNames(
     return circles.map((c) => c.circle.name);
   }
   return circles.filter((c) => viewer?.circleIds.includes(c.circleId)).map((c) => c.circle.name);
+}
+
+function postImages(post: { id: string; images: { id: string }[] }) {
+  if (post.images.length === 0) {
+    return [{ id: "cover", mediaUrl: `/api/media/posts/${post.id}` }];
+  }
+  return post.images.map((image) => ({
+    id: image.id,
+    mediaUrl: `/api/media/posts/${post.id}/images/${image.id}`,
+  }));
+}
+
+function storyFrames(story: { id: string; frames: { id: string }[] }) {
+  if (story.frames.length === 0) {
+    return [{ id: "cover", mediaUrl: `/api/media/stories/${story.id}` }];
+  }
+  return story.frames.map((frame) => ({
+    id: frame.id,
+    mediaUrl: `/api/media/stories/${story.id}/frames/${frame.id}`,
+  }));
 }
 
 function personFromUser(user: {
@@ -85,7 +107,9 @@ export function serializePost(post: PostRow, viewer: Viewer | null): PostDTO | n
     caption: post.caption,
     audience: asAudience(post.audience),
     circleNames: visibleCircleNames(post.circles, viewer, post.authorId),
-    mediaUrl: `/api/media/posts/${post.id}`,
+    circleIds: viewer?.role === "OWNER" ? post.circles.map((c) => c.circleId) : [],
+    mediaUrl: postImages(post)[0].mediaUrl,
+    images: postImages(post),
     createdAt: post.createdAt.toISOString(),
     likeCount: post.likeCount,
     likedByMe: viewer ? post.likes.some((l) => l.userId === viewer.id) : false,
@@ -110,7 +134,8 @@ export function serializeStory(story: StoryRow, viewer: Viewer | null, now = new
     caption: story.caption,
     audience: asAudience(story.audience),
     circleNames: visibleCircleNames(story.circles, viewer, story.authorId),
-    mediaUrl: `/api/media/stories/${story.id}`,
+    mediaUrl: storyFrames(story)[0].mediaUrl,
+    frames: storyFrames(story),
     createdAt: story.createdAt.toISOString(),
     expiresAt: story.expiresAt.toISOString(),
     author: {

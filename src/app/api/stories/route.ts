@@ -1,6 +1,6 @@
 import { getViewer } from "@/lib/auth";
 import { handle, json } from "@/lib/api";
-import { assertCirclesOwned, parseAudience, readImageFile, requireOwner } from "@/lib/content";
+import { assertCirclesOwned, parseAudience, readImageFiles, requireOwner } from "@/lib/content";
 import { HttpError } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
 import { getStory, listStories } from "@/lib/queries";
@@ -26,22 +26,23 @@ export async function POST(req: Request) {
     const circleIds = form.getAll("circleIds").map(String);
     const audience = parseAudience(String(form.get("audience") ?? ""), circleIds);
     await assertCirclesOwned(viewer.id, audience.circleIds);
-    const imagePath = await readImageFile(form.get("image"), "stories");
+    const paths = await readImageFiles(form, "stories");
     try {
       const story = await prisma.story.create({
         data: {
           authorId: viewer.id,
           label,
           caption,
-          imagePath,
+          imagePath: paths[0],
           audience: audience.audience,
           expiresAt: new Date(Date.now() + DAY),
           circles: { create: audience.circleIds.map((circleId) => ({ circleId })) },
+          frames: { create: paths.map((imagePath, position) => ({ imagePath, position })) },
         },
       });
       return json({ story: await getStory(story.id, viewer) }, 201);
     } catch (err) {
-      await deleteObject(imagePath);
+      await Promise.all(paths.map((path) => deleteObject(path)));
       throw err;
     }
   }, true);

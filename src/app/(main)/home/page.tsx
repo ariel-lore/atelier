@@ -17,8 +17,9 @@ export default async function HomePage() {
       ) : (
         posts.map((post) => (
           <article key={post.id} className="feed-card">
-            <Link href={`/post/${post.id}`}>
+            <Link href={`/post/${post.id}`} className="feed-media">
               <img src={post.mediaUrl} alt="" />
+              {post.images.length > 1 ? <span className="feed-count">{post.images.length} photos</span> : null}
             </Link>
             <div className="feed-caption">
               <Link href={`/u/${post.author.handle}`} className="feed-author">

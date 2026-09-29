@@ -13,12 +13,20 @@ export type Viewer = {
   avatarUrl: string | null;
 };
 
+export type MediaImage = {
+  id: string;
+  mediaUrl: string;
+};
+
 export type PostDTO = {
   id: string;
   caption: string;
   audience: Audience;
   circleNames: string[];
+  /** Present for the owner so edit can restore the audience. Empty for everyone else. */
+  circleIds: string[];
   mediaUrl: string;
+  images: MediaImage[];
   createdAt: string;
   likeCount: number;
   likedByMe: boolean;
@@ -37,6 +45,7 @@ export type StoryDTO = {
   audience: Audience;
   circleNames: string[];
   mediaUrl: string;
+  frames: MediaImage[];
   createdAt: string;
   expiresAt: string;
   author: {

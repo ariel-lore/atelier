@@ -54,6 +54,7 @@ Copy `.env.example` if you need a fresh file. The repo includes a `.env` with lo
 - Roles: `OWNER` and `MEMBER`
 - Circles: create, rename, delete, and assign verified people
 - New post or 24-hour story with audience **Public**, **one or more circles**, or **Only me**
+- Multi-photo posts (preview, then edit or delete) and multi-frame stories with an in-app viewer
 - Feed, profile, post, and media routes that filter on the server
 - Instagram verification: an emoji sentence, a link to check, and a manual confirm for Bart
 - Messages between verified members, and an Instagram link when someone is not verified yet
@@ -67,7 +68,33 @@ Audience is stored on each post and story:
 - `CIRCLES` — the owner, the author, or a viewer who belongs to at least one selected circle
 - `PRIVATE` — the owner and the author (“Only me”)
 
-Filtering happens in Prisma queries and again before a response is built (`src/lib/privacy.ts`, `src/lib/queries.ts`). HTML and JSON only include items that pass. Image files live outside `public/` and are streamed by `/api/media/posts/[id]` and `/api/media/stories/[id]`, which repeat the same check. Unauthorized and missing ids both return 404, so a guessed link does not confirm that a private post exists.
+Filtering happens in Prisma queries and again before a response is built (`src/lib/privacy.ts`, `src/lib/queries.ts`). HTML and JSON only include items that pass. Image files live outside `public/` and are streamed only after the same check:
+
+- `/api/media/posts/[id]` — cover photo (also used for older posts that have a single file)
+- `/api/media/posts/[id]/images/[imageId]` — each extra photo on a post
+- `/api/media/stories/[id]` — story cover
+- `/api/media/stories/[id]/frames/[frameId]` — each story frame
+
+Unauthorized and missing ids both return 404, so a guessed link does not confirm that a private post or story exists. A private story frame uses the parent story’s audience and expiry; it is not a separate public file.
+
+## Owner posts and stories
+
+Only the owner (Bart) can publish. Open **New** in the bottom bar.
+
+**Posts**
+
+1. Choose **Post**, then add one or more photos from the camera roll (up to 10). The first photo is the cover on the grid.
+2. Write a caption and pick an audience: **Public**, one or more **circles**, or **Only me**.
+3. **Preview** walks the photos and shows the audience. Nothing is stored until **Publish post**.
+4. On your own post, **Edit** changes the caption, audience, and photos (remove some, add more). **Delete** removes the post and its files.
+
+**Stories**
+
+1. Choose **Story**, add one or more frames the same way, and give the ring a short label.
+2. Audience works the same as posts. Stories expire 24 hours after they are created; every frame in that story expires together.
+3. The viewer shows a progress bar per frame, advances on its own, and accepts a tap on the left or right (or the arrow keys). **Close** returns to the profile. When the last frame ends, the viewer closes.
+
+A member in the wrong circle, or anyone logged out, does not receive the post, the story, or any of their image URLs.
 
 Profile lists are a separate check. A private list is omitted from the profile payload; the list endpoint returns 403 and no names.
 
@@ -119,7 +146,7 @@ Changing the owner email or password means editing `.env` and running `npm run s
 
 ## Project map
 
-- `prisma/schema.prisma` — users, sessions, circles, posts, stories, verification, messages
+- `prisma/schema.prisma` — users, sessions, circles, posts (with `PostImage` rows), stories (with `StoryFrame` rows), verification, messages
 - `src/lib/privacy.ts` — who can see a post, story, or profile field
 - `src/app/api/**` — auth, feed, profile, media, circles, verification, messages
 - `src/app/(main)/**` — the phone-shaped UI

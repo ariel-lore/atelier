@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { LikeButton } from "@/components/LikeButton";
+import { PostGallery } from "@/components/PostGallery";
+import { PostOwnerBar } from "@/components/PostOwnerBar";
 import { BackIcon, LockIcon } from "@/components/Icons";
 import { getViewer } from "@/lib/auth";
 import { audienceLabel, getPost } from "@/lib/queries";
@@ -19,7 +21,8 @@ export default async function PostPage({ params }: { params: Promise<{ id: strin
         </Link>
         <span>Post</span>
       </div>
-      <img className="post-hero" src={post.mediaUrl} alt={post.caption || "Post"} />
+      <PostGallery images={post.images} alt={post.caption || "Post"} />
+      {viewer?.role === "OWNER" && viewer.id === post.author.id ? <PostOwnerBar postId={post.id} /> : null}
       <LikeButton postId={post.id} liked={post.likedByMe} count={post.likeCount} />
       <div className="post-caption-block">
         <Link href={`/u/${post.author.handle}`} className="post-author">

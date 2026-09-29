@@ -1,9 +1,9 @@
 import { getViewer } from "@/lib/auth";
 import { handle, json } from "@/lib/api";
-import { getPost, listPosts } from "@/lib/queries";
-import { assertCirclesOwned, parseAudience, readImageFile, requireOwner } from "@/lib/content";
+import { assertCirclesOwned, parseAudience, readImageFiles, requireOwner } from "@/lib/content";
 import { HttpError } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
+import { getPost, listPosts } from "@/lib/queries";
 import { deleteObject } from "@/lib/storage";
 
 export async function GET(req: Request) {
@@ -23,23 +23,21 @@ export async function POST(req: Request) {
     const circleIds = form.getAll("circleIds").map(String);
     const audience = parseAudience(String(form.get("audience") ?? ""), circleIds);
     await assertCirclesOwned(viewer.id, audience.circleIds);
-    const imagePath = await readImageFile(form.get("image"), "posts");
+    const paths = await readImageFiles(form, "posts");
     try {
       const post = await prisma.post.create({
         data: {
           authorId: viewer.id,
           caption,
-          imagePath,
+          imagePath: paths[0],
           audience: audience.audience,
-          circles: {
-            create: audience.circleIds.map((circleId) => ({ circleId })),
-          },
+          circles: { create: audience.circleIds.map((circleId) => ({ circleId })) },
+          images: { create: paths.map((imagePath, position) => ({ imagePath, position })) },
         },
       });
-      const dto = await getPost(post.id, viewer);
-      return json({ post: dto }, 201);
+      return json({ post: await getPost(post.id, viewer) }, 201);
     } catch (err) {
-      await deleteObject(imagePath);
+      await Promise.all(paths.map((path) => deleteObject(path)));
       throw err;
     }
   }, true);

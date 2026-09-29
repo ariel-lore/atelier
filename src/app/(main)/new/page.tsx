@@ -36,7 +36,7 @@ export default async function NewPage() {
   return (
     <section className="view page-pad">
       <h2 className="page-title">New</h2>
-      <p className="lede">Choose a photo and who it is for.</p>
+      <p className="lede">Add photos, choose who can see them, then preview before it goes live.</p>
       <ComposeForm circles={circles} />
     </section>
   );

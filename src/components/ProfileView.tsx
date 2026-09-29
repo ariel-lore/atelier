@@ -153,6 +153,7 @@ export function ProfileView({ profile, viewer }: { profile: ProfileDTO; viewer: 
               aria-label={post.caption.slice(0, 80) || "Post"}
             >
               <img src={post.mediaUrl} alt="" />
+              {post.images.length > 1 && <span className="grid-count">{post.images.length}</span>}
               {post.audience !== "PUBLIC" && (
                 <span className="grid-badge" title={post.circleNames.join(", ") || "Private"}>
                   <LockIcon size={11} />

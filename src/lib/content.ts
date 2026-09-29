@@ -2,8 +2,29 @@ import { randomUUID } from "crypto";
 import { prisma } from "./prisma";
 import { HttpError } from "./http";
 import type { Audience, Viewer } from "./types";
-import { extensionForMime, saveObject, sniffImageMime } from "./storage";
+import { deleteObject, extensionForMime, saveObject, sniffImageMime } from "./storage";
 import { MAX_IMAGE_BYTES } from "./utils";
+
+export const MAX_GALLERY = 10;
+
+export async function readImageFiles(form: FormData, folder: "posts" | "stories", required = true) {
+  const entries = [...form.getAll("images"), ...form.getAll("image")].filter(
+    (file): file is File => file instanceof File && file.size > 0,
+  );
+  if (entries.length === 0) {
+    if (!required) return [];
+    throw new HttpError(400, "Choose at least one photo");
+  }
+  if (entries.length > MAX_GALLERY) throw new HttpError(400, `Up to ${MAX_GALLERY} photos`);
+  const keys: string[] = [];
+  try {
+    for (const file of entries) keys.push(await readImageFile(file, folder));
+    return keys;
+  } catch (err) {
+    await Promise.all(keys.map((key) => deleteObject(key)));
+    throw err;
+  }
+}
 
 export async function readImageFile(file: FormDataEntryValue | null, folder: "posts" | "stories" | "avatars") {
   if (!(file instanceof File) || file.size === 0) {
